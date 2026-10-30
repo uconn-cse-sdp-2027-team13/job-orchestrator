@@ -1,0 +1,37 @@
+# Target build directories
+target/
+**/target/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# VS Code
+.vscode/
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Logs
+*.log
+
+# Maven release plugin
+release.properties
+pom.xml.releaseBackup
+pom.xml.tag
+pom.xml.next
+pom.xml.versionsBackup
+dependency-reduced-pom.xml
+
