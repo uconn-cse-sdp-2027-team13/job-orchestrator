@@ -15,4 +15,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared `JobState` domain model in `common` and initial service classes with unit tests across all submodules ([#1](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/1)).
 - Portable Maven wrapper (`mvnw`) and `.mvn` configuration for reproducible builds ([#1](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/1)).
 - Initial `.gitignore` covering Java, Maven, IDEs, and OS-generated files ([#1](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/1)).
-
+- `JobMessage` record, `ExitCode` enum (0, 10, 20), and `StorageClient`, `JobQueue`, `JobRepository`, `ClusterClient` contracts in `common`, with unit tests ([#2](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/2)).
