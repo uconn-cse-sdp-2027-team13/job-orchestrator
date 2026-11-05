@@ -1,6 +1,7 @@
 package edu.uconn.cse.team13.consumer;
 
 import edu.uconn.cse.team13.common.capacity.JobCapacity;
+import edu.uconn.cse.team13.common.capacity.RepositoryJobCapacity;
 import edu.uconn.cse.team13.common.model.JobMessage;
 import edu.uconn.cse.team13.common.queue.JobQueue;
 import edu.uconn.cse.team13.common.queue.QueuedJob;
@@ -20,37 +21,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class ConsumerServiceTest {
 
     @Test
     void processNextWaitsWhenAtCapacityWithoutReading() {
         AtomicInteger reads = new AtomicInteger();
-        JobQueue queue = new JobQueue() {
-            @Override
-            public String publish(JobMessage message) {
-                throw new UnsupportedOperationException();
-            }
+        JobQueue queue = recordingQueue(reads);
+        JobRepository repository = fakeRepository(2);
+        JobCapacity capacity = new RepositoryJobCapacity(repository, 2);
 
-            @Override
-            public Optional<QueuedJob> readNext(Duration blockTimeout) {
-                reads.incrementAndGet();
-                return Optional.empty();
-            }
-
-            @Override
-            public void acknowledge(String queueMessageId) {
-            }
-
-            @Override
-            public List<QueuedJob> reclaimStale(Duration minimumIdleTime, int limit) {
-                return List.of();
-            }
-        };
-
-        ConsumerService consumer = newConsumer(queue, msg -> "job", (id, attempt, name) -> {
-        }, () -> false);
+        ConsumerService consumer = newConsumer(queue, msg -> "job", repository, capacity);
 
         assertEquals(DispatchStepResult.WAITING_FOR_CAPACITY, consumer.processNext());
         assertEquals(0, reads.get());
@@ -67,8 +49,16 @@ class ConsumerServiceTest {
             steps.add("schedule");
             return "k8s-" + msg.jobId();
         };
-        JobRepository repository = (jobId, attempt, k8sJobName) -> {
-            steps.add("markDispatched:" + k8sJobName);
+        JobRepository repository = new JobRepository() {
+            @Override
+            public void markDispatched(UUID jobId, int attempt, String kubernetesJobName) {
+                steps.add("markDispatched:" + kubernetesJobName);
+            }
+
+            @Override
+            public int countActiveJobs() {
+                return 0;
+            }
         };
 
         ConsumerService consumer = newConsumer(queue, scheduler, repository, () -> true);
@@ -89,12 +79,11 @@ class ConsumerServiceTest {
                 msg -> {
                     throw new IllegalStateException("cluster unavailable");
                 },
-                (id, attempt, name) -> {
-                },
+                fakeRepository(0),
                 () -> true);
 
         assertEquals(DispatchStepResult.DISPATCH_FAILED, consumer.processNext());
-        assertTrue(!acked.get());
+        assertFalse(acked.get());
     }
 
     @Test
@@ -103,16 +92,22 @@ class ConsumerServiceTest {
         AtomicBoolean acked = new AtomicBoolean();
         JobQueue queue = singleMessageQueue("1-0", message, id -> acked.set(true), new ArrayList<>());
 
-        ConsumerService consumer = newConsumer(
-                queue,
-                msg -> "k8s-job",
-                (id, attempt, name) -> {
-                    throw new IllegalStateException("mysql unavailable");
-                },
-                () -> true);
+        JobRepository repository = new JobRepository() {
+            @Override
+            public void markDispatched(UUID jobId, int attempt, String kubernetesJobName) {
+                throw new IllegalStateException("mysql unavailable");
+            }
+
+            @Override
+            public int countActiveJobs() {
+                return 0;
+            }
+        };
+
+        ConsumerService consumer = newConsumer(queue, msg -> "k8s-job", repository, () -> true);
 
         assertEquals(DispatchStepResult.DISPATCH_FAILED, consumer.processNext());
-        assertTrue(!acked.get());
+        assertFalse(acked.get());
     }
 
     @Test
@@ -139,8 +134,7 @@ class ConsumerServiceTest {
             }
         };
 
-        ConsumerService consumer = newConsumer(queue, msg -> "job", (id, attempt, name) -> {
-        }, () -> true);
+        ConsumerService consumer = newConsumer(queue, msg -> "job", fakeRepository(0), () -> true);
 
         assertEquals(DispatchStepResult.INVALID_MESSAGE, consumer.processNext());
     }
@@ -151,11 +145,10 @@ class ConsumerServiceTest {
         AtomicBoolean acked = new AtomicBoolean();
         JobQueue queue = singleMessageQueue("1-0", message, id -> acked.set(true), new ArrayList<>());
 
-        ConsumerService consumer = newConsumer(queue, msg -> "job", (id, attempt, name) -> {
-        }, () -> true);
+        ConsumerService consumer = newConsumer(queue, msg -> "job", fakeRepository(0), () -> true);
 
         assertEquals(DispatchStepResult.DISPATCH_FAILED, consumer.processNext());
-        assertTrue(!acked.get());
+        assertFalse(acked.get());
     }
 
     private static ConsumerService newConsumer(
@@ -170,6 +163,43 @@ class ConsumerServiceTest {
                 capacity,
                 Duration.ofMillis(10),
                 Duration.ofMillis(10));
+    }
+
+    private static JobRepository fakeRepository(int activeJobs) {
+        return new JobRepository() {
+            @Override
+            public void markDispatched(UUID jobId, int attempt, String kubernetesJobName) {
+            }
+
+            @Override
+            public int countActiveJobs() {
+                return activeJobs;
+            }
+        };
+    }
+
+    private static JobQueue recordingQueue(AtomicInteger reads) {
+        return new JobQueue() {
+            @Override
+            public String publish(JobMessage message) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Optional<QueuedJob> readNext(Duration blockTimeout) {
+                reads.incrementAndGet();
+                return Optional.empty();
+            }
+
+            @Override
+            public void acknowledge(String queueMessageId) {
+            }
+
+            @Override
+            public List<QueuedJob> reclaimStale(Duration minimumIdleTime, int limit) {
+                return List.of();
+            }
+        };
     }
 
     private static JobMessage sampleMessage(int schemaVersion) {

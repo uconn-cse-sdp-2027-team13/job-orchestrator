@@ -4,13 +4,19 @@ import java.util.UUID;
 
 /**
  * Authoritative job lifecycle persistence (MySQL in production).
- * Only the dispatch transition needed by the consumer is declared here for now.
+ * Table DDL is owned by {@code platform-infra} Flyway; this module only queries it.
  */
 public interface JobRepository {
 
     /**
      * Records {@code QUEUED -> DISPATCHED} with the created Kubernetes Job name.
-     * Must be idempotent for the same {@code jobId} + {@code attempt} when already dispatched.
+     * Idempotent when already {@code DISPATCHED} for the same {@code jobId}, attempt, and name.
      */
     void markDispatched(UUID jobId, int attempt, String kubernetesJobName);
+
+    /**
+     * Jobs that consume concurrency slots ({@code DISPATCHED} + {@code RUNNING}).
+     * Stand-in for active pods until a cluster client exists.
+     */
+    int countActiveJobs();
 }
