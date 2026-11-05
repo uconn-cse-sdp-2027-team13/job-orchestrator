@@ -15,4 +15,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared `JobState` domain model in `common` and initial service classes with unit tests across all submodules ([#1](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/1)).
 - Portable Maven wrapper (`mvnw`) and `.mvn` configuration for reproducible builds ([#1](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/1)).
 - Initial `.gitignore` covering Java, Maven, IDEs, and OS-generated files ([#1](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/1)).
+- Centralized GitHub Actions CI verification workflow calling reusable pipeline from org `.github` ([#3](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/3)).
 
