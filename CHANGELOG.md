@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Synthetic CSV data generator conforming to Section 6.1 schema (`account_number,email,payment_due_date,payment_amount`) with streaming buffered writer, support for demonstration synthetic generation mode and production formatting mode ([#8](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/8)).
+- Producer coordination service that creates synthetic CSV files, inserts initial `QUEUED` job records into MySQL via `JobRepository.createJob`, and dispatches version 1 `JobMessage` to Redis Streams queue, with recurring scheduled execution support ([#8](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/8)).
+- Initial job row insertion (`createJob`) and state query (`findState`) methods on `JobRepository` and `MysqlJobRepository` ([#8](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/8)).
+- Promoted Redis Streams adapter (`RedisJobQueue`, `RedisJobQueueConfig`, `JobMessageCodec`, `InvalidQueueMessageException`) to `common.queue` for shared broker publishing and dequeuing across producer and consumer ([#8](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/8)).
+- Comprehensive unit tests covering CSV schema layout, synthetic data constraints, decimal precision, idempotency, scheduled execution, and failure boundaries ([#8](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/8)).
 - Shared queue and dispatch contracts in `common`, including versioned `JobMessage`, `QueuedJob`, `JobQueue`, `JobScheduler`, `JobRepository`, and `JobCapacity` interfaces ([#6](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/6)).
 - Lettuce-based Redis Streams adapter with consumer-group creation, one-entry reads, message encoding and decoding, acknowledgements, and stale-pending reclaim support ([#6](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/6)).
 - Consumer dispatch flow that checks capacity before reading, accepts schema version 1, submits through the scheduler interface, persists `DISPATCHED`, and acknowledges only after both dispatch and persistence succeed ([#6](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/6)).

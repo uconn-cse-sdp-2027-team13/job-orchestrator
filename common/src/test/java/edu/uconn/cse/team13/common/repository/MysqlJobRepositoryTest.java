@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -51,6 +52,31 @@ class MysqlJobRepositoryTest {
     @AfterEach
     void tearDown() {
         dataSource.close();
+    }
+
+    @Test
+    void createJobInsertsQueuedRow() throws SQLException {
+        UUID jobId = UUID.randomUUID();
+        repository.createJob(jobId, "data.csv", "/data/data.csv");
+
+        assertEquals(Optional.of(JobState.QUEUED), repository.findState(jobId));
+        assertEquals("data.csv", readString(jobId, "file_name"));
+        assertEquals("/data/data.csv", readString(jobId, "file_path"));
+        assertEquals(0, readAttempt(jobId));
+    }
+
+    @Test
+    void createJobIsIdempotent() {
+        UUID jobId = UUID.randomUUID();
+        repository.createJob(jobId, "data.csv", "/data/data.csv");
+        repository.createJob(jobId, "data.csv", "/data/data.csv");
+
+        assertEquals(Optional.of(JobState.QUEUED), repository.findState(jobId));
+    }
+
+    @Test
+    void findStateReturnsEmptyWhenNotFound() {
+        assertTrue(repository.findState(UUID.randomUUID()).isEmpty());
     }
 
     @Test

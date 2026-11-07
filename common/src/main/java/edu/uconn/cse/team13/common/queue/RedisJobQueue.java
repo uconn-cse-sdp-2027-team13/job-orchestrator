@@ -1,4 +1,4 @@
-package edu.uconn.cse.team13.consumer.queue;
+package edu.uconn.cse.team13.common.queue;
 
 import edu.uconn.cse.team13.common.model.JobMessage;
 import edu.uconn.cse.team13.common.queue.JobQueue;
