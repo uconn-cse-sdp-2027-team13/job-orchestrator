@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Status tracker service that lists then watches labelled job pods through the Fabric8 Kubernetes client, moves jobs through `RUNNING`, `SUCCEEDED`, `RETRY_WAIT`, and `DEAD_LETTERED` using configurable retry and exit-code policies, records `pod_event` and `job_attempt` rows in MySQL, reconciles missed events on startup and reconnect, and reads its configuration from environment variables ([#9](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/9)).
+- Unit tests for pod mapping, event processing, reconciliation, watch reconnects, and retry policies, plus H2-backed repository tests against the platform-infra schema; Maven dependency management for the Fabric8 Kubernetes client and the SLF4J simple binding ([#9](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/9)).
+
 - Shared queue and dispatch contracts in `common`, including versioned `JobMessage`, `QueuedJob`, `JobQueue`, `JobScheduler`, `JobRepository`, and `JobCapacity` interfaces ([#6](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/6)).
 - Lettuce-based Redis Streams adapter with consumer-group creation, one-entry reads, message encoding and decoding, acknowledgements, and stale-pending reclaim support ([#6](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/6)).
 - Consumer dispatch flow that checks capacity before reading, accepts schema version 1, submits through the scheduler interface, persists `DISPATCHED`, and acknowledges only after both dispatch and persistence succeed ([#6](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/6)).
