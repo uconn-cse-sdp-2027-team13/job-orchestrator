@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Kubernetes Job builder and Fabric8 scheduler with pod labels, workload environment, local data mount, resource/deadline/TTL configuration, idempotent attempt submission, and mock API tests ([#7](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/7)).
+
 - Shared queue and dispatch contracts in `common`, including versioned `JobMessage`, `QueuedJob`, `JobQueue`, `JobScheduler`, `JobRepository`, and `JobCapacity` interfaces ([#6](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/6)).
 - Lettuce-based Redis Streams adapter with consumer-group creation, one-entry reads, message encoding and decoding, acknowledgements, and stale-pending reclaim support ([#6](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/6)).
 - Consumer dispatch flow that checks capacity before reading, accepts schema version 1, submits through the scheduler interface, persists `DISPATCHED`, and acknowledges only after both dispatch and persistence succeed ([#6](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/6)).
