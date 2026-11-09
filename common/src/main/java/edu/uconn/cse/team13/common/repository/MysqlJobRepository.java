@@ -8,6 +8,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -21,6 +22,53 @@ public final class MysqlJobRepository implements JobRepository {
 
     public MysqlJobRepository(DataSource dataSource) {
         this.dataSource = Objects.requireNonNull(dataSource, "dataSource must not be null");
+    }
+
+    @Override
+    public void createJob(UUID jobId, String fileName, String filePath) {
+        Objects.requireNonNull(jobId, "jobId must not be null");
+        Objects.requireNonNull(fileName, "fileName must not be null");
+        Objects.requireNonNull(filePath, "filePath must not be null");
+        if (fileName.isBlank()) {
+            throw new IllegalArgumentException("fileName must not be blank");
+        }
+        if (filePath.isBlank()) {
+            throw new IllegalArgumentException("filePath must not be blank");
+        }
+
+        String id = jobId.toString();
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                if (jobExists(connection, id)) {
+                    connection.commit();
+                    return;
+                }
+
+                try (PreparedStatement insert = connection.prepareStatement(
+                        """
+                        INSERT INTO job (job_id, file_name, file_path, state, attempt_count, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        """)) {
+                    insert.setString(1, id);
+                    insert.setString(2, fileName);
+                    insert.setString(3, filePath);
+                    insert.setString(4, JobState.QUEUED.name());
+                    insert.setInt(5, 0);
+                    insert.executeUpdate();
+                }
+                connection.commit();
+            } catch (RuntimeException | SQLException ex) {
+                connection.rollback();
+                throw ex instanceof RuntimeException runtime
+                        ? runtime
+                        : new IllegalStateException("Failed to create job row for jobId=" + id, ex);
+            } finally {
+                connection.setAutoCommit(true);
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed to create job row for jobId=" + id, ex);
+        }
     }
 
     @Override
@@ -92,6 +140,43 @@ public final class MysqlJobRepository implements JobRepository {
             }
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed to count active jobs", ex);
+        }
+    }
+
+    @Override
+    public Optional<JobState> findState(UUID jobId) {
+        Objects.requireNonNull(jobId, "jobId must not be null");
+        String id = jobId.toString();
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     """
+                     SELECT state
+                     FROM job
+                     WHERE job_id = ?
+                     """)) {
+            statement.setString(1, id);
+            try (ResultSet rs = statement.executeQuery()) {
+                if (!rs.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(JobState.valueOf(rs.getString("state")));
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed to find state for jobId=" + id, ex);
+        }
+    }
+
+    private static boolean jobExists(Connection connection, String jobId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                """
+                SELECT 1
+                FROM job
+                WHERE job_id = ?
+                """)) {
+            statement.setString(1, jobId);
+            try (ResultSet rs = statement.executeQuery()) {
+                return rs.next();
+            }
         }
     }
 

@@ -1,4 +1,4 @@
-package edu.uconn.cse.team13.consumer.queue;
+package edu.uconn.cse.team13.common.queue;
 
 /**
  * A broker entry was delivered but could not be mapped to a valid {@code JobMessage}.

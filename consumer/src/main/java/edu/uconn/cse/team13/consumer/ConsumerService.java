@@ -6,7 +6,7 @@ import edu.uconn.cse.team13.common.queue.JobQueue;
 import edu.uconn.cse.team13.common.queue.QueuedJob;
 import edu.uconn.cse.team13.common.repository.JobRepository;
 import edu.uconn.cse.team13.common.scheduler.JobScheduler;
-import edu.uconn.cse.team13.consumer.queue.InvalidQueueMessageException;
+import edu.uconn.cse.team13.common.queue.InvalidQueueMessageException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
