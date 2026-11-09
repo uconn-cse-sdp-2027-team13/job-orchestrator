@@ -1,4 +1,4 @@
-package edu.uconn.cse.team13.consumer.queue;
+package edu.uconn.cse.team13.common.queue;
 
 import edu.uconn.cse.team13.common.model.JobMessage;
 
@@ -10,19 +10,19 @@ import java.util.UUID;
 /**
  * Maps {@link JobMessage} fields to Redis Streams hash entries and back.
  */
-final class JobMessageCodec {
+public final class JobMessageCodec {
 
-    static final String SCHEMA_VERSION = "schemaVersion";
-    static final String JOB_ID = "jobId";
-    static final String FILE_NAME = "fileName";
-    static final String FILE_PATH = "filePath";
-    static final String SUBMITTED_AT = "submittedAt";
-    static final String ATTEMPT = "attempt";
+    public static final String SCHEMA_VERSION = "schemaVersion";
+    public static final String JOB_ID = "jobId";
+    public static final String FILE_NAME = "fileName";
+    public static final String FILE_PATH = "filePath";
+    public static final String SUBMITTED_AT = "submittedAt";
+    public static final String ATTEMPT = "attempt";
 
     private JobMessageCodec() {
     }
 
-    static Map<String, String> encode(JobMessage message) {
+    public static Map<String, String> encode(JobMessage message) {
         Map<String, String> fields = new HashMap<>();
         fields.put(SCHEMA_VERSION, Integer.toString(message.schemaVersion()));
         fields.put(JOB_ID, message.jobId().toString());
@@ -33,7 +33,7 @@ final class JobMessageCodec {
         return fields;
     }
 
-    static JobMessage decode(Map<String, String> fields) {
+    public static JobMessage decode(Map<String, String> fields) {
         return new JobMessage(
                 parseInt(required(fields, SCHEMA_VERSION), SCHEMA_VERSION),
                 parseUuid(required(fields, JOB_ID)),
