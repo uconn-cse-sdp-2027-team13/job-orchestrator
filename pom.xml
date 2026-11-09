@@ -27,7 +27,7 @@
         <hikaricp.version>5.1.0</hikaricp.version>
         <mysql.version>8.4.0</mysql.version>
         <h2.version>2.3.232</h2.version>
-        <fabric8.version>7.9.0</fabric8.version>
+        <fabric8.version>7.3.1</fabric8.version>
 
         <!-- Maven plugin versions -->
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
@@ -56,6 +56,13 @@
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+
+            <!-- Runtime logging binding for runnable services -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-simple</artifactId>
                 <version>${slf4j.version}</version>
             </dependency>
 

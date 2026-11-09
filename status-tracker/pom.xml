@@ -16,7 +16,10 @@
     <name>Status Tracker Module</name>
     <description>Monitoring pod lifecycle events and updating MySQL</description>
 
+    <!-- All versions are managed in the parent pom's dependencyManagement. -->
     <dependencies>
+        <!-- Shared models (JobState) and DataSourceFactory; brings HikariCP (compile)
+             and mysql-connector-j (runtime) transitively. -->
         <dependency>
             <groupId>edu.uconn.cse.team13</groupId>
             <artifactId>common</artifactId>
@@ -27,11 +30,30 @@
             <artifactId>slf4j-api</artifactId>
         </dependency>
 
+        <!-- Pod watch/list against the Kubernetes API -->
+        <dependency>
+            <groupId>io.fabric8</groupId>
+            <artifactId>kubernetes-client</artifactId>
+        </dependency>
+
+        <!-- Logging binding for StatusTrackerApplication -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- In-memory DB for JdbcStatusRepositoryTest -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>
-
