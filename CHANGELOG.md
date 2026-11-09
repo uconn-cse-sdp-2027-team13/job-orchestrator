@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `StorageClient` contract in `common` with `open`, `exists`, and `write` for job input files ([#2](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/2)).
 - Synthetic CSV data generator conforming to Section 6.1 schema (`account_number,email,payment_due_date,payment_amount`) with streaming buffered writer, support for demonstration synthetic generation mode and production formatting mode ([#8](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/8)).
 - Producer coordination service that creates synthetic CSV files, inserts initial `QUEUED` job records into MySQL via `JobRepository.createJob`, and dispatches version 1 `JobMessage` to Redis Streams queue, with recurring scheduled execution support ([#8](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/8)).
 - Initial job row insertion (`createJob`) and state query (`findState`) methods on `JobRepository` and `MysqlJobRepository` ([#8](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/8)).
