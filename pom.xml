@@ -66,13 +66,6 @@
                 <version>${slf4j.version}</version>
             </dependency>
 
-            <!-- Kubernetes client (status tracker; scheduler may reuse) -->
-            <dependency>
-                <groupId>io.fabric8</groupId>
-                <artifactId>kubernetes-client</artifactId>
-                <version>${fabric8.version}</version>
-            </dependency>
-
             <!-- Redis client (Streams) -->
             <dependency>
                 <groupId>io.lettuce</groupId>
