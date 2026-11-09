@@ -27,6 +27,7 @@
         <hikaricp.version>5.1.0</hikaricp.version>
         <mysql.version>8.4.0</mysql.version>
         <h2.version>2.3.232</h2.version>
+        <fabric8.version>7.3.1</fabric8.version>
 
         <!-- Maven plugin versions -->
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
@@ -37,6 +38,7 @@
         <module>common</module>
         <module>producer</module>
         <module>consumer</module>
+        <module>scheduler</module>
         <module>status-tracker</module>
         <module>api</module>
     </modules>
@@ -54,6 +56,13 @@
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+
+            <!-- Runtime logging binding for runnable services -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-simple</artifactId>
                 <version>${slf4j.version}</version>
             </dependency>
 
@@ -79,6 +88,19 @@
                 <groupId>com.h2database</groupId>
                 <artifactId>h2</artifactId>
                 <version>${h2.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- Kubernetes client and its test API server -->
+            <dependency>
+                <groupId>io.fabric8</groupId>
+                <artifactId>kubernetes-client</artifactId>
+                <version>${fabric8.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.fabric8</groupId>
+                <artifactId>kubernetes-server-mock</artifactId>
+                <version>${fabric8.version}</version>
                 <scope>test</scope>
             </dependency>
 
