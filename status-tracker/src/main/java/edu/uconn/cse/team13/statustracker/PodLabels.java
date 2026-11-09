@@ -7,7 +7,7 @@ package edu.uconn.cse.team13.statustracker;
  */
 public final class PodLabels {
 
-    public static final String JOB_ID = "job-id";
+    public static final String JOB_ID = "job_id";
     public static final String ATTEMPT = "attempt";
 
     /** Existence selector: any pod carrying both labels belongs to the orchestrator. */
