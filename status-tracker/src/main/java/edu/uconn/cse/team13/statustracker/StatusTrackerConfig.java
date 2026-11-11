@@ -23,7 +23,8 @@ public record StatusTrackerConfig(
         Duration maxBackoff) {
 
     /**
-     * Variables: {@code JDBC_URL}, {@code DB_USER}, {@code DB_PASSWORD} (required);
+     * Variables: {@code JDBC_URL} (or {@code MYSQL_URL}), {@code DB_USER} (or {@code MYSQL_USER}),
+     * {@code DB_PASSWORD} (or {@code MYSQL_PASSWORD}) (required);
      * {@code K8S_NAMESPACE}, {@code WORKLOAD_CONTAINER} (default {@code job-workload}),
      * {@code NON_RETRIABLE_EXIT_CODES} (comma list, default {@code 2}),
      * {@code MAX_ATTEMPTS} (default 3), {@code RETRY_INITIAL_DELAY_SECONDS} (default 60),
@@ -38,9 +39,9 @@ public record StatusTrackerConfig(
                 defaults.multiplier(),
                 defaults.maxDelay());
         return new StatusTrackerConfig(
-                required(env, "JDBC_URL"),
-                required(env, "DB_USER"),
-                required(env, "DB_PASSWORD"),
+                required(env, "JDBC_URL", "MYSQL_URL"),
+                required(env, "DB_USER", "MYSQL_USER"),
+                required(env, "DB_PASSWORD", "MYSQL_PASSWORD"),
                 blankToNull(env.get("K8S_NAMESPACE")),
                 env.getOrDefault("WORKLOAD_CONTAINER", "job-workload"),
                 exitCodes(env.get("NON_RETRIABLE_EXIT_CODES")),
@@ -49,10 +50,14 @@ public record StatusTrackerConfig(
                 Duration.ofSeconds(intValue(env, "RECONNECT_MAX_SECONDS", 60)));
     }
 
-    private static String required(Map<String, String> env, String key) {
-        String value = env.get(key);
+    private static String required(Map<String, String> env, String primaryKey, String fallbackKey) {
+        String value = env.get(primaryKey);
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("Missing required environment variable " + key);
+            value = env.get(fallbackKey);
+        }
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Missing required environment variable " + primaryKey + " (or " + fallbackKey + ")");
         }
         return value;
     }
