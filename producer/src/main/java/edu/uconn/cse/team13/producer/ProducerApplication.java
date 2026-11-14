@@ -7,6 +7,8 @@ import edu.uconn.cse.team13.common.queue.RedisJobQueue;
 import edu.uconn.cse.team13.common.queue.RedisJobQueueConfig;
 import edu.uconn.cse.team13.common.repository.JobRepository;
 import edu.uconn.cse.team13.common.repository.MysqlJobRepository;
+import edu.uconn.cse.team13.common.storage.S3StorageClient;
+import edu.uconn.cse.team13.common.storage.StorageClient;
 import edu.uconn.cse.team13.producer.generator.CsvDataGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,8 +32,9 @@ public final class ProducerApplication {
 
     public static void main(String[] args) {
         ProducerConfig config = ProducerConfig.fromEnv(System.getenv());
-        logger.info("Starting ProducerApplication with dataDir={}, recordCount={}, oneShot={}, intervalSeconds={}",
-                config.dataDir(), config.recordCount(), config.oneShot(), config.intervalSeconds());
+        logger.info("Starting ProducerApplication with s3Endpoint={}, s3Bucket={}, recordCount={}, oneShot={}, intervalSeconds={}",
+                config.storage().endpoint(), config.storage().bucket(),
+                config.recordCount(), config.oneShot(), config.intervalSeconds());
 
         DataSource dataSource = DataSourceFactory.create(config.jdbcUrl(), config.dbUser(), config.dbPassword());
         JobRepository repository = new MysqlJobRepository(dataSource);
@@ -42,8 +45,9 @@ public final class ProducerApplication {
                 config.consumerGroup(),
                 config.producerName());
         RedisJobQueue queue = new RedisJobQueue(queueConfig);
+        S3StorageClient storage = new S3StorageClient(config.storage());
 
-        ProducerService producerService = createProducerService(config, queue, repository);
+        ProducerService producerService = createProducerService(config, queue, repository, storage);
 
         if (config.oneShot() || config.intervalSeconds() <= 0) {
             logger.info("Executing one-shot synthetic job generation (recordCount={})...", config.recordCount());
@@ -55,6 +59,11 @@ public final class ProducerApplication {
                     queue.close();
                 } catch (Exception ex) {
                     logger.warn("Error closing RedisJobQueue", ex);
+                }
+                try {
+                    storage.close();
+                } catch (Exception ex) {
+                    logger.warn("Error closing S3StorageClient", ex);
                 }
             }
             return;
@@ -84,6 +93,11 @@ public final class ProducerApplication {
             } catch (Exception ex) {
                 logger.warn("Error closing RedisJobQueue", ex);
             }
+            try {
+                storage.close();
+            } catch (Exception ex) {
+                logger.warn("Error closing S3StorageClient", ex);
+            }
         }, "producer-shutdown"));
 
         long initialDelay = config.produceOnStart() ? 0 : config.intervalSeconds();
@@ -108,12 +122,13 @@ public final class ProducerApplication {
     static ProducerService createProducerService(
             ProducerConfig config,
             JobQueue queue,
-            JobRepository repository) {
+            JobRepository repository,
+            StorageClient storage) {
         return new ProducerService(
                 queue,
                 repository,
                 new CsvDataGenerator(),
-                config.dataDir());
+                storage);
     }
 }
 

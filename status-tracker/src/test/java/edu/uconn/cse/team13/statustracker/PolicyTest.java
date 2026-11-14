@@ -49,8 +49,10 @@ class PolicyTest {
     void exitCodePolicyTreatsOnlyConfiguredCodesAsNonRetriable() {
         ExitCodePolicy policy = ExitCodePolicy.defaults();
 
-        assertFalse(policy.isRetriable(2));
+        assertFalse(policy.isRetriable(20));
         assertTrue(policy.isRetriable(1));
+        assertTrue(policy.isRetriable(2));
+        assertTrue(policy.isRetriable(10));
         assertTrue(policy.isRetriable(137));
         assertTrue(policy.isRetriable(143));
         assertTrue(policy.isRetriable(null));
@@ -75,7 +77,7 @@ class PolicyTest {
                 "NON_RETRIABLE_EXIT_CODES", "2, 65",
                 "MAX_ATTEMPTS", "5"));
 
-        assertEquals("job-workload", config.workloadContainer());
+        assertEquals("workload", config.workloadContainer());
         assertEquals(Set.of(2, 65), config.nonRetriableExitCodes());
         assertEquals(5, config.retryPolicy().defaultMaxAttempts());
         assertEquals(null, config.namespace());

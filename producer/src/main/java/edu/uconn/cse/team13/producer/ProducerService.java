@@ -4,11 +4,14 @@ import edu.uconn.cse.team13.common.model.JobMessage;
 import edu.uconn.cse.team13.common.model.JobState;
 import edu.uconn.cse.team13.common.queue.JobQueue;
 import edu.uconn.cse.team13.common.repository.JobRepository;
+import edu.uconn.cse.team13.common.storage.StorageClient;
 import edu.uconn.cse.team13.producer.generator.CsvDataGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
@@ -19,8 +22,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Coordinates file generation, persistence of the initial {@code QUEUED} job state,
- * and dispatch of {@link JobMessage} payloads to the Redis Streams queue.
+ * Coordinates file generation, upload of the file to object storage, persistence of the initial
+ * {@code QUEUED} job state, and dispatch of {@link JobMessage} payloads to the Redis Streams queue.
  */
 public class ProducerService {
 
@@ -29,14 +32,14 @@ public class ProducerService {
     private final JobQueue queue;
     private final JobRepository repository;
     private final CsvDataGenerator generator;
-    private final Path storageDirectory;
+    private final StorageClient storage;
     private final Clock clock;
 
     public ProducerService() {
         this.queue = null;
         this.repository = null;
         this.generator = new CsvDataGenerator();
-        this.storageDirectory = Path.of("/data");
+        this.storage = null;
         this.clock = Clock.systemUTC();
     }
 
@@ -44,20 +47,20 @@ public class ProducerService {
             JobQueue queue,
             JobRepository repository,
             CsvDataGenerator generator,
-            Path storageDirectory) {
-        this(queue, repository, generator, storageDirectory, Clock.systemUTC());
+            StorageClient storage) {
+        this(queue, repository, generator, storage, Clock.systemUTC());
     }
 
     public ProducerService(
             JobQueue queue,
             JobRepository repository,
             CsvDataGenerator generator,
-            Path storageDirectory,
+            StorageClient storage,
             Clock clock) {
         this.queue = Objects.requireNonNull(queue, "queue must not be null");
         this.repository = Objects.requireNonNull(repository, "repository must not be null");
         this.generator = Objects.requireNonNull(generator, "generator must not be null");
-        this.storageDirectory = Objects.requireNonNull(storageDirectory, "storageDirectory must not be null");
+        this.storage = Objects.requireNonNull(storage, "storage must not be null");
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
 
@@ -67,8 +70,9 @@ public class ProducerService {
     }
 
     /**
-     * Produces a synthetic CSV file matching Section 6.1, registers the job as {@code QUEUED}
-     * in the repository, and publishes a {@link JobMessage} to the queue.
+     * Produces a synthetic CSV file matching Section 6.1, uploads it to object storage,
+     * registers the job as {@code QUEUED} in the repository, and publishes a {@link JobMessage}
+     * to the queue.
      *
      * @param recordCount number of synthetic records to generate
      * @return the published JobMessage
@@ -80,11 +84,11 @@ public class ProducerService {
     }
 
     /**
-     * Produces a synthetic CSV file with the given jobId and fileName, registers as {@code QUEUED},
-     * and publishes to the queue.
+     * Produces a synthetic CSV file with the given jobId and fileName, uploads it to object storage,
+     * registers as {@code QUEUED}, and publishes to the queue.
      *
      * @param jobId stable identifier for the job
-     * @param fileName display file name
+     * @param fileName display file name, also used as the object key the file is stored under
      * @param recordCount number of synthetic records to generate
      * @return the published JobMessage
      */
@@ -94,19 +98,19 @@ public class ProducerService {
         if (fileName.isBlank()) {
             throw new IllegalArgumentException("fileName must not be blank");
         }
-        if (queue == null || repository == null) {
-            throw new IllegalStateException("ProducerService requires configured queue and repository");
+        if (queue == null || repository == null || storage == null) {
+            throw new IllegalStateException("ProducerService requires configured queue, repository, and storage");
         }
 
-        Path targetFile = storageDirectory.resolve(fileName);
-        String filePath = targetFile.toAbsolutePath().toString();
+        // The object key is relative (no host directory), so a pod can fetch the file from storage.
+        String filePath = fileName;
 
         try {
-            logger.info("Generating synthetic CSV with {} records at {}", recordCount, targetFile);
-            generator.generateSyntheticCsv(targetFile, recordCount);
+            logger.info("Generating synthetic CSV with {} records and uploading it as {}", recordCount, filePath);
+            uploadSyntheticCsv(filePath, recordCount);
         } catch (IOException ex) {
-            logger.error("Failed to generate synthetic CSV for jobId={}", jobId, ex);
-            throw new IllegalStateException("Failed to generate CSV for jobId=" + jobId, ex);
+            logger.error("Failed to generate or upload synthetic CSV for jobId={}", jobId, ex);
+            throw new IllegalStateException("Failed to generate or upload CSV for jobId=" + jobId, ex);
         }
 
         try {
@@ -134,6 +138,22 @@ public class ProducerService {
         }
 
         return message;
+    }
+
+    /**
+     * Generates the CSV into a temporary local file, streams that file into object storage under
+     * {@code objectKey}, and removes the temporary file whether or not the upload worked.
+     */
+    private void uploadSyntheticCsv(String objectKey, int recordCount) throws IOException {
+        Path tempFile = Files.createTempFile("producer-", ".csv");
+        try {
+            generator.generateSyntheticCsv(tempFile, recordCount);
+            try (InputStream csv = Files.newInputStream(tempFile)) {
+                storage.write(objectKey, csv);
+            }
+        } finally {
+            Files.deleteIfExists(tempFile);
+        }
     }
 
     /**

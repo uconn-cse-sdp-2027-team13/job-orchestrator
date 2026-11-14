@@ -6,7 +6,13 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
 
-/** Settings for workload pods. The host data directory must exist on the Kubernetes node. */
+/**
+ * Settings for workload pods. Pods read their input from object storage using the S3 settings in
+ * {@code environment}, so no node directory is needed.
+ *
+ * @param dataHostPath optional directory on the Kubernetes node to mount read-only at {@code /data};
+ *                     {@code null} (the normal case) means the pod gets no {@code hostPath} volume
+ */
 public record KubernetesJobConfig(
         String namespace,
         String image,
@@ -35,8 +41,7 @@ public record KubernetesJobConfig(
         if (image.isBlank()) {
             throw new IllegalArgumentException("image must not be blank");
         }
-        Objects.requireNonNull(dataHostPath, "dataHostPath must not be null");
-        if (!Path.of(dataHostPath).isAbsolute()) {
+        if (dataHostPath != null && !Path.of(dataHostPath).isAbsolute()) {
             throw new IllegalArgumentException("dataHostPath must be absolute");
         }
         environment = Map.copyOf(environment);

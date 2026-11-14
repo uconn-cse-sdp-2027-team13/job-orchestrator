@@ -1,6 +1,7 @@
 package edu.uconn.cse.team13.producer;
 
-import java.nio.file.Path;
+import edu.uconn.cse.team13.common.storage.S3StorageConfig;
+
 import java.util.Map;
 import java.util.Objects;
 
@@ -15,7 +16,7 @@ public record ProducerConfig(
         String streamKey,
         String consumerGroup,
         String producerName,
-        Path dataDir,
+        S3StorageConfig storage,
         int recordCount,
         boolean oneShot,
         boolean produceOnStart,
@@ -26,7 +27,6 @@ public record ProducerConfig(
     public static final String DEFAULT_STREAM_KEY = "jobs:stream";
     public static final String DEFAULT_CONSUMER_GROUP = "orchestrator-producers";
     public static final String DEFAULT_PRODUCER_NAME = "producer-1";
-    public static final String DEFAULT_DATA_DIR = "/data";
     public static final int DEFAULT_RECORD_COUNT = 2500;
     public static final int DEFAULT_INTERVAL_SECONDS = 300; // 5 minutes (design doc Section 5.2 / 7.1)
     public static final boolean DEFAULT_PRODUCE_ON_START = true;
@@ -40,7 +40,7 @@ public record ProducerConfig(
         Objects.requireNonNull(streamKey, "streamKey must not be null");
         Objects.requireNonNull(consumerGroup, "consumerGroup must not be null");
         Objects.requireNonNull(producerName, "producerName must not be null");
-        Objects.requireNonNull(dataDir, "dataDir must not be null");
+        Objects.requireNonNull(storage, "storage must not be null");
         if (recordCount < 1) {
             throw new IllegalArgumentException("recordCount must be at least 1");
         }
@@ -50,7 +50,9 @@ public record ProducerConfig(
     }
 
     /**
-     * Parses configuration from environment variables.
+     * Parses configuration from environment variables. Object storage settings come from
+     * {@code S3_ENDPOINT}, {@code S3_BUCKET}, {@code S3_ACCESS_KEY}, {@code S3_SECRET_KEY},
+     * and {@code S3_REGION} (all required).
      */
     public static ProducerConfig fromEnv(Map<String, String> env) {
         String jdbcUrl = required(env, "JDBC_URL", "MYSQL_URL");
@@ -71,9 +73,7 @@ public record ProducerConfig(
         String producerName = env.getOrDefault("REDIS_PRODUCER_NAME",
                 env.getOrDefault("HOSTNAME", DEFAULT_PRODUCER_NAME));
 
-        String rawDataDir = env.getOrDefault("DATA_DIR",
-                env.getOrDefault("DATA_HOST_PATH", DEFAULT_DATA_DIR));
-        Path dataDir = Path.of(rawDataDir).toAbsolutePath();
+        S3StorageConfig storage = S3StorageConfig.fromEnv(env);
 
         int recordCount = intValue(env, "RECORD_COUNT", DEFAULT_RECORD_COUNT);
         boolean oneShot = booleanValue(env, "ONE_SHOT", DEFAULT_ONE_SHOT);
@@ -89,7 +89,7 @@ public record ProducerConfig(
                 streamKey,
                 consumerGroup,
                 producerName,
-                dataDir,
+                storage,
                 recordCount,
                 oneShot,
                 produceOnStart,

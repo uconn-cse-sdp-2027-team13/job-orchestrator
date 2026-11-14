@@ -6,6 +6,7 @@ import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -19,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class KubernetesJobBuilderTest {
 
     @Test
-    void buildsWorkloadWithMessageLabelsEnvironmentAndSharedData() {
+    void buildsWorkloadWithMessageLabelsAndEnvironmentAndNoHostPath() {
         JobMessage message = message(1);
         Job job = new KubernetesJobBuilder(config()).build(message);
         var spec = job.getSpec();
@@ -43,13 +44,12 @@ class KubernetesJobBuilderTest {
         assertEquals(Map.of(
                 "JOB_ID", message.jobId().toString(),
                 "FILE_PATH", message.filePath(),
-                "MYSQL_URL", "jdbc:mysql://mysql:3306/app"),
+                "MYSQL_URL", "jdbc:mysql://mysql:3306/app",
+                "S3_ENDPOINT", "http://host.docker.internal:9000",
+                "S3_BUCKET", "job-files"),
                 container.getEnv().stream().collect(Collectors.toMap(EnvVar::getName, EnvVar::getValue)));
-        assertEquals("/data", container.getVolumeMounts().get(0).getMountPath());
-        assertTrue(container.getVolumeMounts().get(0).getReadOnly());
-        assertEquals(pod.getVolumes().get(0).getName(), container.getVolumeMounts().get(0).getName());
-        assertEquals("/srv/job-data", pod.getVolumes().get(0).getHostPath().getPath());
-        assertEquals("Directory", pod.getVolumes().get(0).getHostPath().getType());
+        assertTrue(pod.getVolumes() == null || pod.getVolumes().isEmpty());
+        assertTrue(container.getVolumeMounts() == null || container.getVolumeMounts().isEmpty());
         assertEquals(new Quantity("100m"), container.getResources().getRequests().get("cpu"));
         assertEquals(new Quantity("128Mi"), container.getResources().getRequests().get("memory"));
         assertEquals(new Quantity("1"), container.getResources().getLimits().get("cpu"));
@@ -59,10 +59,26 @@ class KubernetesJobBuilderTest {
     }
 
     @Test
+    void mountsHostDirectoryReadOnlyWhenOneIsConfigured() {
+        String hostPath = Path.of("/srv/job-data").toAbsolutePath().toString();
+        var config = new KubernetesJobConfig("scheduler-test", "batch-workload:local", hostPath, Map.of());
+        var pod = new KubernetesJobBuilder(config).build(message(1)).getSpec().getTemplate().getSpec();
+        var container = pod.getContainers().get(0);
+
+        assertEquals(1, pod.getVolumes().size());
+        assertEquals(1, container.getVolumeMounts().size());
+        assertEquals("/data", container.getVolumeMounts().get(0).getMountPath());
+        assertTrue(container.getVolumeMounts().get(0).getReadOnly());
+        assertEquals(pod.getVolumes().get(0).getName(), container.getVolumeMounts().get(0).getName());
+        assertEquals(hostPath, pod.getVolumes().get(0).getHostPath().getPath());
+        assertEquals("Directory", pod.getVolumes().get(0).getHostPath().getType());
+    }
+
+    @Test
     void usesConfiguredResourcesDeadlineAndTtl() {
         Map<String, Quantity> requests = Map.of("cpu", new Quantity("250m"), "memory", new Quantity("256Mi"));
         Map<String, Quantity> limits = Map.of("cpu", new Quantity("2"), "memory", new Quantity("1Gi"));
-        var config = new KubernetesJobConfig("scheduler-test", "worker:v1", "/srv/job-data",
+        var config = new KubernetesJobConfig("scheduler-test", "worker:v1", null,
                 Map.of(), requests, limits, 120, 600);
         Job job = new KubernetesJobBuilder(config).build(message(1));
 
@@ -104,8 +120,11 @@ class KubernetesJobBuilderTest {
     }
 
     static KubernetesJobConfig config() {
-        return new KubernetesJobConfig("scheduler-test", "batch-workload:local", "/srv/job-data",
-                Map.of("MYSQL_URL", "jdbc:mysql://mysql:3306/app"));
+        return new KubernetesJobConfig("scheduler-test", "batch-workload:local", null,
+                Map.of(
+                        "MYSQL_URL", "jdbc:mysql://mysql:3306/app",
+                        "S3_ENDPOINT", "http://host.docker.internal:9000",
+                        "S3_BUCKET", "job-files"));
     }
 
     static JobMessage message(int attempt) {

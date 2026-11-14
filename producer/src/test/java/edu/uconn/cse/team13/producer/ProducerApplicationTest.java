@@ -6,9 +6,7 @@ import edu.uconn.cse.team13.common.queue.JobQueue;
 import edu.uconn.cse.team13.common.queue.QueuedJob;
 import edu.uconn.cse.team13.common.repository.JobRepository;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -18,16 +16,21 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProducerApplicationTest {
 
     @Test
-    void createProducerServiceWiresComponentsCorrectly(@TempDir Path tempDir) {
+    void createProducerServiceWiresComponentsCorrectly() {
         ProducerConfig config = ProducerConfig.fromEnv(Map.of(
                 "JDBC_URL", "jdbc:mysql://localhost:3306/app",
                 "DB_USER", "app",
                 "DB_PASSWORD", "secret",
-                "DATA_DIR", tempDir.toString(),
+                "S3_ENDPOINT", "http://localhost:9000",
+                "S3_BUCKET", "job-files",
+                "S3_ACCESS_KEY", "local-rustfs",
+                "S3_SECRET_KEY", "local-rustfs-password",
+                "S3_REGION", "us-east-1",
                 "RECORD_COUNT", "10"));
 
         AtomicReference<JobMessage> published = new AtomicReference<>();
@@ -73,12 +76,14 @@ class ProducerApplicationTest {
             }
         };
 
-        ProducerService service = ProducerApplication.createProducerService(config, queue, repository);
+        InMemoryStorageClient storage = new InMemoryStorageClient();
+        ProducerService service = ProducerApplication.createProducerService(config, queue, repository, storage);
         assertNotNull(service);
 
         JobMessage message = service.produceAndPublishSyntheticJob(10);
         assertNotNull(message);
         assertEquals(message, published.get());
+        assertTrue(storage.exists(message.filePath()));
     }
 }
 

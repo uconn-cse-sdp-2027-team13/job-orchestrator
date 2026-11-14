@@ -28,6 +28,7 @@
         <mysql.version>8.4.0</mysql.version>
         <h2.version>2.3.232</h2.version>
         <fabric8.version>7.3.1</fabric8.version>
+        <aws.sdk.version>2.25.60</aws.sdk.version>
 
         <!-- Maven plugin versions -->
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
@@ -108,6 +109,13 @@
                 <artifactId>kubernetes-server-mock</artifactId>
                 <version>${fabric8.version}</version>
                 <scope>test</scope>
+            </dependency>
+
+            <!-- S3-compatible object storage client (RustFS locally, AWS S3 later) -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>s3</artifactId>
+                <version>${aws.sdk.version}</version>
             </dependency>
 
             <!-- JUnit 5 BOM for testing -->

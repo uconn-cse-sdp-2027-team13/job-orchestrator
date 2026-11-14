@@ -7,11 +7,10 @@ import edu.uconn.cse.team13.common.queue.QueuedJob;
 import edu.uconn.cse.team13.common.repository.JobRepository;
 import edu.uconn.cse.team13.producer.generator.CsvDataGenerator;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -46,7 +45,7 @@ class ProducerServiceTest {
     }
 
     @Test
-    void produceAndPublishSyntheticJobCreatesFilePersistsAndPublishes(@TempDir Path tempDir) {
+    void produceAndPublishSyntheticJobUploadsFilePersistsAndPublishes() throws IOException {
         AtomicReference<JobMessage> publishedMessage = new AtomicReference<>();
         AtomicReference<UUID> persistedJobId = new AtomicReference<>();
         AtomicReference<String> persistedFileName = new AtomicReference<>();
@@ -69,11 +68,12 @@ class ProducerServiceTest {
             }
         };
 
+        InMemoryStorageClient storage = new InMemoryStorageClient();
         ProducerService service = new ProducerService(
                 queue,
                 repository,
                 new CsvDataGenerator(),
-                tempDir,
+                storage,
                 fixedClock);
 
         UUID jobId = UUID.randomUUID();
@@ -86,13 +86,18 @@ class ProducerServiceTest {
         assertEquals(1, result.schemaVersion());
         assertEquals(jobId, result.jobId());
         assertEquals(fileName, result.fileName());
-        assertEquals(tempDir.resolve(fileName).toAbsolutePath().toString(), result.filePath());
+        // The published path is the relative object key, not a path on this machine.
+        assertEquals(fileName, result.filePath());
         assertEquals(fixedInstant, result.submittedAt());
         assertEquals(1, result.attempt());
 
-        // File created
-        Path createdFile = tempDir.resolve(fileName);
-        assertTrue(Files.exists(createdFile));
+        // File uploaded to storage under the object key
+        assertTrue(storage.exists(fileName));
+        try (InputStream uploaded = storage.open(fileName)) {
+            String csv = new String(uploaded.readAllBytes(), StandardCharsets.UTF_8);
+            assertTrue(csv.startsWith(CsvDataGenerator.CSV_HEADER));
+            assertEquals(recordCount + 1, csv.lines().count());
+        }
 
         // Repository called
         assertEquals(jobId, persistedJobId.get());
@@ -104,13 +109,13 @@ class ProducerServiceTest {
     }
 
     @Test
-    void produceAndPublishRejectsMissingComponents(@TempDir Path tempDir) {
+    void produceAndPublishRejectsMissingComponents() {
         ProducerService service = new ProducerService();
         assertThrows(IllegalStateException.class, () -> service.produceAndPublishSyntheticJob(10));
     }
 
     @Test
-    void produceDoesNotPublishWhenRepositoryFails(@TempDir Path tempDir) {
+    void produceDoesNotPublishWhenRepositoryFails() {
         AtomicBoolean published = new AtomicBoolean();
         JobQueue queue = new FakeJobQueue() {
             @Override
@@ -131,7 +136,7 @@ class ProducerServiceTest {
                 queue,
                 repository,
                 new CsvDataGenerator(),
-                tempDir,
+                new InMemoryStorageClient(),
                 fixedClock);
 
         assertThrows(IllegalStateException.class, () -> service.produceAndPublishSyntheticJob(10));
@@ -139,7 +144,45 @@ class ProducerServiceTest {
     }
 
     @Test
-    void scheduleSyntheticJobGenerationTriggersExecution(@TempDir Path tempDir) throws InterruptedException {
+    void produceDoesNotPersistOrPublishWhenUploadFails() {
+        AtomicBoolean persisted = new AtomicBoolean();
+        AtomicBoolean published = new AtomicBoolean();
+        JobQueue queue = new FakeJobQueue() {
+            @Override
+            public String publish(JobMessage message) {
+                published.set(true);
+                return "1-0";
+            }
+        };
+
+        JobRepository repository = new FakeJobRepository() {
+            @Override
+            public void createJob(UUID jobId, String fileName, String filePath) {
+                persisted.set(true);
+            }
+        };
+
+        InMemoryStorageClient brokenStorage = new InMemoryStorageClient() {
+            @Override
+            public void write(String path, InputStream data) throws IOException {
+                throw new IOException("storage down");
+            }
+        };
+
+        ProducerService service = new ProducerService(
+                queue,
+                repository,
+                new CsvDataGenerator(),
+                brokenStorage,
+                fixedClock);
+
+        assertThrows(IllegalStateException.class, () -> service.produceAndPublishSyntheticJob(10));
+        assertFalse(persisted.get());
+        assertFalse(published.get());
+    }
+
+    @Test
+    void scheduleSyntheticJobGenerationTriggersExecution() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
         JobQueue queue = new FakeJobQueue() {
             @Override
@@ -154,7 +197,7 @@ class ProducerServiceTest {
                 queue,
                 repository,
                 new CsvDataGenerator(),
-                tempDir,
+                new InMemoryStorageClient(),
                 fixedClock);
 
         ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();

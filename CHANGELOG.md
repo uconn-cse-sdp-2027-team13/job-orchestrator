@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `S3StorageClient` in `common`, a `StorageClient` for S3-compatible object storage (RustFS locally) built on the AWS S3 SDK with path-style access, configured through `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, and `S3_REGION`. It creates a missing bucket on first write and throws `FileNotFoundException` for a missing key ([#18](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/18)).
+- Consumer passes S3 settings into workload pods, with `WORKLOAD_S3_*` overrides such as `WORKLOAD_S3_ENDPOINT` for an address reachable from inside the cluster ([#18](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/18)).
 - Service application entrypoints and environment configuration loaders for `consumer` (`ConsumerApplication`, `ConsumerConfig`) and `producer` (`ProducerApplication`, `ProducerConfig`), with support for one-shot and scheduled generation, graceful shutdown hooks, and fallback environment variable resolution (`JDBC_URL` / `MYSQL_URL`, `REDIS_URI` / `REDIS_HOST`) ([#11](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/11)).
 - Executable fat JAR packaging via `maven-shade-plugin` across `consumer`, `producer`, and `status-tracker` modules ([#11](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/11)).
 - Unit tests for consumer, producer, and status-tracker configuration parsing and application service construction ([#11](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/11)).
@@ -37,3 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Portable Maven wrapper (`mvnw`) and `.mvn` configuration for reproducible builds ([#1](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/1)).
 - Initial `.gitignore` covering Java, Maven, IDEs, and OS-generated files ([#1](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/1)).
 - Centralized GitHub Actions CI verification workflow calling reusable pipeline from org `.github` ([#3](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/3)).
+
+### Changed
+
+- Producer uploads generated CSV files through `StorageClient` and publishes the relative object key (for example `payments_<jobId>.csv`) in `JobMessage.filePath` and the `job` table instead of a host path. `DATA_DIR` is no longer read by the producer ([#18](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/18)).
+- Workload pods no longer require a `/data` `hostPath` volume. `dataHostPath` is optional in `KubernetesJobConfig` and `ConsumerConfig`, and a volume is mounted only when `DATA_HOST_PATH` is set ([#18](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/18)).
+- Status tracker defaults now match the scheduler and `batch-workload`: `WORKLOAD_CONTAINER` defaults to `workload` and `NON_RETRIABLE_EXIT_CODES` defaults to `20`. Both remain configurable ([#18](https://github.com/uconn-cse-sdp-2027-team13/job-orchestrator/issues/18)).

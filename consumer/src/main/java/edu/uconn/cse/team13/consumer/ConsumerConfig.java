@@ -1,5 +1,7 @@
 package edu.uconn.cse.team13.consumer;
 
+import edu.uconn.cse.team13.common.storage.S3StorageConfig;
+
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collections;
@@ -9,6 +11,11 @@ import java.util.Objects;
 
 /**
  * Runtime configuration for the consumer service read from environment variables.
+ *
+ * @param dataHostPath optional node directory to mount into workload pods; {@code null} when
+ *                     neither {@code DATA_HOST_PATH} nor {@code DATA_DIR} is set, which is the
+ *                     normal case now that pods read their input from object storage
+ * @param workloadEnvironment variables passed into each workload pod, including the S3 settings
  */
 public record ConsumerConfig(
         String jdbcUrl,
@@ -36,7 +43,6 @@ public record ConsumerConfig(
     public static final Duration DEFAULT_CAPACITY_POLL_INTERVAL = Duration.ofSeconds(1);
     public static final String DEFAULT_K8S_NAMESPACE = "default";
     public static final String DEFAULT_WORKLOAD_IMAGE = "batch-workload:local";
-    public static final String DEFAULT_DATA_PATH = "/data";
 
     public ConsumerConfig {
         Objects.requireNonNull(jdbcUrl, "jdbcUrl must not be null");
@@ -53,7 +59,6 @@ public record ConsumerConfig(
         Objects.requireNonNull(capacityPollInterval, "capacityPollInterval must not be null");
         Objects.requireNonNull(k8sNamespace, "k8sNamespace must not be null");
         Objects.requireNonNull(workloadImage, "workloadImage must not be null");
-        Objects.requireNonNull(dataHostPath, "dataHostPath must not be null");
         workloadEnvironment = workloadEnvironment == null ? Map.of() : Map.copyOf(workloadEnvironment);
     }
 
@@ -99,9 +104,11 @@ public record ConsumerConfig(
         String k8sNamespace = env.getOrDefault("K8S_NAMESPACE", DEFAULT_K8S_NAMESPACE);
         String workloadImage = env.getOrDefault("WORKLOAD_IMAGE", DEFAULT_WORKLOAD_IMAGE);
 
-        String rawDataPath = env.getOrDefault("DATA_HOST_PATH",
-                env.getOrDefault("DATA_DIR", DEFAULT_DATA_PATH));
-        String dataHostPath = Path.of(rawDataPath).toAbsolutePath().toString();
+        // Optional: only set when a node directory should still be mounted into pods.
+        String rawDataPath = env.getOrDefault("DATA_HOST_PATH", env.get("DATA_DIR"));
+        String dataHostPath = rawDataPath == null || rawDataPath.isBlank()
+                ? null
+                : Path.of(rawDataPath.trim()).toAbsolutePath().toString();
 
         Map<String, String> workloadEnv = new HashMap<>();
         String workloadJdbcUrl = env.getOrDefault("WORKLOAD_JDBC_URL", jdbcUrl);
@@ -117,6 +124,19 @@ public record ConsumerConfig(
         }
         if (batchSize != null && !batchSize.isBlank()) {
             workloadEnv.put("BATCH_SIZE", batchSize.trim());
+        }
+
+        // Pods get the same S3 settings as this service unless a WORKLOAD_ override is set.
+        // WORKLOAD_S3_ENDPOINT matters most: "localhost" inside a pod is the pod itself,
+        // so pods usually need a different address for RustFS than this service does.
+        for (String name : S3StorageConfig.VARIABLES) {
+            String value = env.get("WORKLOAD_" + name);
+            if (value == null || value.isBlank()) {
+                value = env.get(name);
+            }
+            if (value != null && !value.isBlank()) {
+                workloadEnv.put(name, value.trim());
+            }
         }
 
         return new ConsumerConfig(
