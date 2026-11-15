@@ -22,11 +22,14 @@ public record StatusTrackerConfig(
         Duration minBackoff,
         Duration maxBackoff) {
 
+    /** Matches the container name {@code KubernetesJobBuilder} gives the workload in every Job pod. */
+    public static final String DEFAULT_WORKLOAD_CONTAINER = "workload";
+
     /**
      * Variables: {@code JDBC_URL} (or {@code MYSQL_URL}), {@code DB_USER} (or {@code MYSQL_USER}),
      * {@code DB_PASSWORD} (or {@code MYSQL_PASSWORD}) (required);
-     * {@code K8S_NAMESPACE}, {@code WORKLOAD_CONTAINER} (default {@code job-workload}),
-     * {@code NON_RETRIABLE_EXIT_CODES} (comma list, default {@code 2}),
+     * {@code K8S_NAMESPACE}, {@code WORKLOAD_CONTAINER} (default {@code workload}),
+     * {@code NON_RETRIABLE_EXIT_CODES} (comma list, default {@code 20}),
      * {@code MAX_ATTEMPTS} (default 3), {@code RETRY_INITIAL_DELAY_SECONDS} (default 60),
      * {@code RECONNECT_MIN_SECONDS} (default 2), {@code RECONNECT_MAX_SECONDS} (default 60).
      */
@@ -43,7 +46,7 @@ public record StatusTrackerConfig(
                 required(env, "DB_USER", "MYSQL_USER"),
                 required(env, "DB_PASSWORD", "MYSQL_PASSWORD"),
                 blankToNull(env.get("K8S_NAMESPACE")),
-                env.getOrDefault("WORKLOAD_CONTAINER", "job-workload"),
+                env.getOrDefault("WORKLOAD_CONTAINER", DEFAULT_WORKLOAD_CONTAINER),
                 exitCodes(env.get("NON_RETRIABLE_EXIT_CODES")),
                 retry,
                 Duration.ofSeconds(intValue(env, "RECONNECT_MIN_SECONDS", 2)),

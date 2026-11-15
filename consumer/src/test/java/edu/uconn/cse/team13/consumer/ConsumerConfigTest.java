@@ -7,6 +7,8 @@ import java.time.Duration;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,10 +35,49 @@ class ConsumerConfigTest {
         assertEquals(Duration.ofSeconds(1), config.capacityPollInterval());
         assertEquals("default", config.k8sNamespace());
         assertEquals("batch-workload:local", config.workloadImage());
-        assertEquals(Path.of("/data").toAbsolutePath().toString(), config.dataHostPath());
+        assertNull(config.dataHostPath());
         assertEquals("jdbc:mysql://localhost:3306/app", config.workloadEnvironment().get("JDBC_URL"));
         assertEquals("app", config.workloadEnvironment().get("DB_USER"));
         assertEquals("secret", config.workloadEnvironment().get("DB_PASSWORD"));
+        assertFalse(config.workloadEnvironment().containsKey("S3_ENDPOINT"));
+    }
+
+    @Test
+    void fromEnvPassesStorageSettingsToWorkload() {
+        Map<String, String> env = Map.of(
+                "JDBC_URL", "jdbc:mysql://localhost:3306/app",
+                "DB_USER", "app",
+                "DB_PASSWORD", "secret",
+                "S3_ENDPOINT", "http://localhost:9000",
+                "S3_BUCKET", "job-files",
+                "S3_ACCESS_KEY", "local-rustfs",
+                "S3_SECRET_KEY", "local-rustfs-password",
+                "S3_REGION", "us-east-1");
+
+        Map<String, String> workload = ConsumerConfig.fromEnv(env).workloadEnvironment();
+
+        assertEquals("http://localhost:9000", workload.get("S3_ENDPOINT"));
+        assertEquals("job-files", workload.get("S3_BUCKET"));
+        assertEquals("local-rustfs", workload.get("S3_ACCESS_KEY"));
+        assertEquals("local-rustfs-password", workload.get("S3_SECRET_KEY"));
+        assertEquals("us-east-1", workload.get("S3_REGION"));
+    }
+
+    @Test
+    void fromEnvPrefersWorkloadStorageOverrides() {
+        Map<String, String> env = Map.of(
+                "JDBC_URL", "jdbc:mysql://localhost:3306/app",
+                "DB_USER", "app",
+                "DB_PASSWORD", "secret",
+                "S3_ENDPOINT", "http://localhost:9000",
+                "S3_BUCKET", "job-files",
+                "WORKLOAD_S3_ENDPOINT", "http://host.docker.internal:9000");
+
+        Map<String, String> workload = ConsumerConfig.fromEnv(env).workloadEnvironment();
+
+        assertEquals("http://host.docker.internal:9000", workload.get("S3_ENDPOINT"));
+        assertEquals("job-files", workload.get("S3_BUCKET"));
+        assertFalse(workload.containsKey("WORKLOAD_S3_ENDPOINT"));
     }
 
     @Test

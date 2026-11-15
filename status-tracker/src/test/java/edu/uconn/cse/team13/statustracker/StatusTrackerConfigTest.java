@@ -26,8 +26,8 @@ class StatusTrackerConfigTest {
         assertEquals("app", config.dbUser());
         assertEquals("secret", config.dbPassword());
         assertNull(config.namespace());
-        assertEquals("job-workload", config.workloadContainer());
-        assertEquals(Set.of(2), config.nonRetriableExitCodes());
+        assertEquals("workload", config.workloadContainer());
+        assertEquals(Set.of(20), config.nonRetriableExitCodes());
         assertEquals(3, config.retryPolicy().defaultMaxAttempts());
         assertEquals(Duration.ofSeconds(60), config.retryPolicy().initialDelay());
         assertEquals(Duration.ofSeconds(2), config.minBackoff());

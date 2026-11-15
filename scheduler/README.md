@@ -31,8 +31,14 @@ import java.util.Map;
 // message is the JobMessage received from the queue.
 try (KubernetesClient client = new KubernetesClientBuilder().build()) {
     var config = new KubernetesJobConfig(
-            "default", "batch-workload:local", "/srv/job-data",
-            Map.of("MYSQL_URL", "jdbc:mysql://mysql:3306/app"));
+            "default", "batch-workload:local", null,
+            Map.of(
+                    "MYSQL_URL", "jdbc:mysql://mysql:3306/app",
+                    "S3_ENDPOINT", "http://host.docker.internal:9000",
+                    "S3_BUCKET", "job-files",
+                    "S3_ACCESS_KEY", "local-rustfs",
+                    "S3_SECRET_KEY", "local-rustfs-password",
+                    "S3_REGION", "us-east-1"));
     JobScheduler scheduler = new Fabric8JobScheduler(client, config);
     String kubernetesJobName = scheduler.submit(message);
 }
@@ -46,13 +52,20 @@ The four-argument configuration defaults to CPU request/limit `100m/1`, memory
 request/limit `128Mi/512Mi`, a 3600-second deadline, and a 3600-second cleanup TTL.
 The full constructor accepts resource maps, deadline, and TTL overrides.
 
-For the first local demo, the configured host directory must already exist on the
-**Kubernetes node** and contain the producer's files. It is mounted read-only at
-`/data`; `FILE_PATH` is passed through unchanged. With Kind, expose the host
-directory using `extraMounts`; with Docker Desktop, make it available to its node.
+Pods read their input from object storage (RustFS locally, S3 later), so they need
+no directory on the Kubernetes node. `FILE_PATH` is the object key the producer
+stored, passed through unchanged, and the `S3_*` variables in the workload
+environment tell the pod where the bucket is. The endpoint must be reachable
+**from inside a pod**: `localhost` there is the pod itself, so use an address
+such as `http://host.docker.internal:9000` on Docker Desktop. The consumer reads
+that address from `WORKLOAD_S3_ENDPOINT`.
+
+The third constructor argument is an optional host directory. Pass `null` for no
+`hostPath` volume (the normal case). If a directory is given, it must already
+exist on the **Kubernetes node** and is mounted read-only at `/data`.
+
 The workload image must be available to the cluster (`kind load docker-image`
-when using Kind); pods use `IfNotPresent`. This module uses a local shared volume;
-object-storage integration is separate work.
+when using Kind); pods use `IfNotPresent`.
 
 ## Verification
 

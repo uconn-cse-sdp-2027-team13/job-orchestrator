@@ -121,7 +121,7 @@ class PodEventProcessorTest {
         repo.addJob(jobId, JobState.RUNNING, 1, 3);
 
         Optional<JobState> result =
-                processor.handle(Pods.failed(jobId, 1, 2, "Error"), PodEventType.OBSERVED);
+                processor.handle(Pods.failed(jobId, 1, 20, "Error"), PodEventType.OBSERVED);
 
         assertEquals(Optional.of(JobState.DEAD_LETTERED), result);
     }

@@ -2,9 +2,13 @@ package edu.uconn.cse.team13.scheduler;
 
 import edu.uconn.cse.team13.common.model.JobMessage;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
+import io.fabric8.kubernetes.api.model.Volume;
+import io.fabric8.kubernetes.api.model.VolumeBuilder;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
 import io.fabric8.kubernetes.api.model.batch.v1.JobBuilder;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -35,16 +39,28 @@ public final class KubernetesJobBuilder {
                 .withNewResources()
                     .withRequests(config.requests())
                     .withLimits(config.limits())
-                .endResources()
-                .addNewVolumeMount()
-                    .withName("data")
-                    .withMountPath("/data")
-                    .withReadOnly(true)
-                .endVolumeMount();
+                .endResources();
         config.environment().forEach((key, value) ->
                 workload.addNewEnv().withName(key).withValue(value).endEnv());
         workload.addNewEnv().withName("JOB_ID").withValue(message.jobId().toString()).endEnv()
                 .addNewEnv().withName("FILE_PATH").withValue(message.filePath()).endEnv();
+
+        // Input files come from object storage, so a node directory is mounted only when one is configured.
+        List<Volume> volumes = new ArrayList<>();
+        if (config.dataHostPath() != null) {
+            workload.addNewVolumeMount()
+                    .withName("data")
+                    .withMountPath("/data")
+                    .withReadOnly(true)
+                .endVolumeMount();
+            volumes.add(new VolumeBuilder()
+                    .withName("data")
+                    .withNewHostPath()
+                        .withPath(config.dataHostPath())
+                        .withType("Directory")
+                    .endHostPath()
+                    .build());
+        }
 
         return new JobBuilder()
                 .withApiVersion("batch/v1")
@@ -65,13 +81,7 @@ public final class KubernetesJobBuilder {
                         .withNewSpec()
                             .withRestartPolicy("Never")
                             .withContainers(workload.build())
-                            .addNewVolume()
-                                .withName("data")
-                                .withNewHostPath()
-                                    .withPath(config.dataHostPath())
-                                    .withType("Directory")
-                                .endHostPath()
-                            .endVolume()
+                            .withVolumes(volumes)
                         .endSpec()
                     .endTemplate()
                 .endSpec()
